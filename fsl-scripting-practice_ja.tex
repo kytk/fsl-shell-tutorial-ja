@@ -1,0 +1,1029 @@
+\documentclass{jsarticle}
+\usepackage{amsmath}
+\usepackage[dvipdfmx]{graphicx, color}
+\usepackage[
+dvipdfmx,
+bookmarks=true,
+bookmarksnumbered=true,
+bookmarkstype=toc,
+bookmarksopen=true,
+pdftitle={タイトル},
+pdfauthor={根本清貴},
+pdfsubject={ },
+pdfkeywords={キーワード },
+pdfdisplaydoctitle=true,
+pdfstartview={FitH},
+colorlinks=true,
+]{hyperref}
+\usepackage{pxjahyper}
+\usepackage[Q=yes]{examplep}
+\pagestyle{headings}
+
+
+\begin{document}
+\title{FSL course: シェルスクリプト演習\thanks{\url{http://fsl.fmrib.ox.ac.uk/fslcourse/lectures/scripting/}から演習部分を抽出しました}}
+\author{FMRIB Group \\ 翻訳: 根本 清貴}
+\date{\today}
+\maketitle
+
+\thispagestyle{empty}
+
+%\tableofcontents
+
+\newpage
+
+スクリプト演習セッションにようこそ。この演習は多くのセクションから構成されており、非常に単純なものからはじまり、少しずつ難しいスクリプトの練習へと進んでいきます。一回ですべての演習を終えられるとは期待しないでください。
+
+スクリプトの経験があまりないのであれば、最初のいくつかの演習に時間がかかるでしょう。しかし一度はじめたら、徐々に慣れていき、少しずつ簡単に感じるようになってくると思います。
+
+スクリプトの経験が十分にあるならば、すぐにわかる演習はとばして後半のFSLユーティリティに特化したスクリプトの演習にうつってください。
+
+この演習はスクリプトの基本と様々なFSLのコマンドラインユーティリティの両方をカバーしています。以下に各演習の概要を示します。
+
+\begin{itemize}
+
+\item {\bf 最初のスクリプト}
+
+この演習では{\color{red}\Q{bet}}を使ったもっとも単純なスクリプトを扱います。
+
+\item {\bf Echoとワイルドカード}
+
+{\color{red}\Q{fslmerge, fslsplit}}を使ってワイルドカードやechoの使い方に慣れていきます。
+
+\item {\bf コマンドラインの引数}
+
+演習1のスクリプトを修正し、ユーザが指定した引数を{\color{red}{\tt \$1}}などとして使います。上級編としてはより複雑な引数の使い方として{\color{red}\Q{shift}}を紹介します。
+
+\item {\bf 変数}
+
+{\color{red}\Q{fslval}}を用いて画像のボクセル次元を読み込み、表示します。このスクリプトは今後修正して使用します。
+
+\item {\bf {\tt If}と{\tt Test}}
+
+ifコマンドとtestコマンドの正しい構文を確認し、ファイルが存在するかどうかを確認します。
+
+\item {\bf バッチ処理}
+
+ディレクトリの中にある全部のファイルもしくはユーザが指定したファイルに対して実行するスクリプトを作成します。例では、{\color{red}\Q{bet}}や{\color{red}\Q{fslmaths}}の他に{\color{red}\Q{basename}}を使います。
+
+\item {\bf 容積とFOVを計算する}
+
+計算機{\color{red}\Q{bc}}を用いて画像の定量化とスケーリングを行います。このために、その前で用いたスクリプトと{\color{red}\Q{fslval, fslstats, fslmaths}}を使います。
+
+\item {\bf 断層像一覧の作成}
+
+ループを使って画像の断層像の一覧を作成します。このために{\color{red}\Q{slicer}}と{\color{red}\Q{convert}}を使います。
+
+\item {\bf 刺激提示ファイルの処理}
+
+一般的な刺激提示ファイルを使ってFeat EVファイルをカスタマイズします。{\color{red}\Q{grep, awk, sed}}を使って列や項目を操作し、思い通りに出力する方法を学びます。Block-designでないfMRIの実験を行う場合に非常に便利な演習です。
+
+\item {\bf ファイル名の操作}
+
+.nii.gzのような拡張子を無視するスクリプトを作成し、Featのデザインファイルの中のパスを変更します。このために{\color{red}\Q{sed, basename}}を使います。
+
+\item {\bf スクリプト上級編}
+
+難易度の高い演習です。背景画像の正中矢状断画像にMIP画像を重ねあわせ、回転させるアニメーションを作成します。
+
+\end{itemize}
+
+\section{最初のスクリプト-BETを使う}
+データフォルダに移動しましょう。(訳注:\url{http://fsl.fmrib.ox.ac.uk/fslcourse/}のData Filesセクションからデータをホームディレクトリにダウンロードし、展開すると上記のディレクトリが生成されます)
+
+\bigskip
+
+{\color{red}\Q{cd ~/fsl_course_data/scripting}}
+
+\bigskip
+
+最初の演習では、画像を他の画像に位置合わせを行う前に、BETを使うスクリプトを作ります。
+
+\begin{enumerate}
+\item テキストファイルを編集する
+
+{\color{red}\Q{bet_vol}}という名前のファイルをnanoテキストエディタを使ってつくりましょう。ターミナルから次のようにタイプします。
+
+{\color{red}\Q{nano bet_vol}}
+
+メモ：
+	\begin{itemize}
+	\item エディタは自分のお好きなものでかまいません。
+	\end{itemize}
+
+\item スクリプトを作成する
+このファイルにスクリプト（実際はコマンドひとつですが）を書きます。BETを{\color{red}\Q{vol}}という名前の画像に適応し、結果を{\color{red}\Q{vol_brain}}として保存します。ターミナルで使うコマンドと同じコマンドです。
+
+{\color{red}\Q{bet vol vol_brain}}
+
+スクリプトの最初の行は{\color{red}{\tt \#!/bin/sh}}であることを忘れないようにしてください。
+
+\item スクリプトを実行する
+
+スクリプトを保存します。
+
+画像{\color{red}\Q{im1}}を{\color{red}\Q{vol}}としてコピーします。(拡張子.nii.gzをつけてください)
+
+スクリプトに実行権限をつけます。
+
+{\color{red}\Q{chmod a+x bet_vol}}
+
+スクリプトを実行します。{\color{red}\Q{./bet_vol}}とタイプしてください。(カレントディレクトリ(".")がパスに設定されていないかもしれないため、"./"が必要です)
+
+\item 実行結果を確認する
+
+スクリプトを走らせた後、{\color{red}\Q{vol_brain}}ができているか、そして意味のある結果となっているかを確認します(視覚的にチェックするには、{\color{red}\Q{slices}}を使います)。
+
+\item スクリプトにコメントをつける
+
+スクリプトにコメントをつけ、何をしているのかを書きます。
+
+コメントは行頭以外のどこにでもつけることができ、必ず行頭に{\color{red}{\tt \#}}がきます。
+
+\end{enumerate}
+
+\section{Echoとワイルドカード}
+
+\begin{enumerate}
+\item すべての画像を列挙する
+
+新しいスクリプト(適当な名前にしてください。訳注:listimgなどでどうでしょうか)を作成し、echoを使って現在いるディレクトリとその上のディレクトリにいるすべての{\color{red}\Q{.nii.gz}}ファイルを表示してください。
+
+\item 一部の画像を列挙する
+
+上記のスクリプトを修正し、{\color{red}\Q{vol000X.nii.gz}}ファイルのうち、{\color{red}\Q{X}}が偶数のファイルだけ表示されるようにしてください。
+
+\item 画像をマージする
+
+上記のスクリプトをさらに修正し、先程指定した{\color{red}\Q{vol000X.nii.gz}}ファイルのうち、{\color{red}\Q{X}}が偶数の3D画像ファイルを単一の4D画像ファイルにマージしてみましょう。(ファイル名は任意ですが、my4Dvolumeとしてみましょう)
+
+このためには{\color{red}\Q{fslmerge}}を使います。
+
+\item 出力画像を確認する
+
+出力されたmy4Dvolume.ii.gzが5時点の情報を持っていることを{\color{red}\Q{fslhd}}を使って確認しましょう。
+
+メモ: 端末から{\color{red}\Q{fslhd}}と入力し、その出力の{\color{red}\Q{dim4}}にある数字を見てみてください。
+
+\end{enumerate}
+
+\section {コマンドラインの引数}
+
+\begin{enumerate}
+\item コマンドラインで画像のファイル名を指定する
+
+(最初に使った){\color{red}\Q{bet_vol}}スクリプトを修正し、コマンドラインの引数で指定した画像に対してBETが動作するようにします。
+
+\bigskip
+
+つまり、もし、{\color{red}\Q{./bet_vol im2}}
+
+と入力すると、{\color{red}\Q{im2}}に対してBETが走り、結果は{\color{red}\Q{im2_brain}}として保存されます。
+
+\item テスト
+{\color{red}\Q{im2}}を入力画像にしてスクリプトを走らせてみてください。
+
+出力画像の名前が正しいか、そして画像自体が正しく見えるか確認してください。
+
+メモ: 引数にはファイル名のうち、{\color{red}\Q{.nii.gz}}の部分は含めません。
+
+\item BETに引数を渡す(上級)
+
+変数{\color{red}{\tt \$@}}を使うとその他の引数もBETに渡すことができます(例  -f 0.4 -g 0.1)
+
+しかし、ファイル名は繰り返したくありません。これは{\color{red}\Q{shift}}を用いると取り除くことができます。
+
+一度{\color{red}\Q{shift}}がスクリプトの中で実行されると、第1の引数{\color{red}{\tt \$1}}が取り除かれ、その他の引数がひとつずつ小さくなります。
+
+つまり、{\color{red}{\tt \$2}}は{\color{red}{\tt \$1}}になり、{\color{red}{\tt \$3}}は{\color{red}{\tt \$2}}になります。
+
+{\color{red}\Q{shift}}と{\color{red}{\tt \$@}}を使うことで、ファイル名以外の引数をBETのオプションにセットできます。
+
+\end{enumerate}
+
+\section{コマンドと変数}
+
+\begin{enumerate}
+\item ボクセルサイズを見つける
+
+画像を第1の引数と指定すると、pixdim1, pixdim2, pixdim3の各々の値(mm単位でのボクセルサイズ)を個々の変数におさめるスクリプトを作成してください。
+
+ヒント: バッククオートのスライドで使った{\color{red}\Q{fslval}}の使用方法を参考にしてください。
+
+\item ボクセルサイズを表示する
+
+これらの変数の値を1行で次の形で表してください
+
+{\color{red}\Q{1.0 * 2.0 * 1.0}}
+
+数字が変数にセットされた値です。
+
+ヒント: {\color{red}\Q{*}}の前にバックスラッシュを使うことを忘れないでください
+
+\item スクリプトを走らせてみてください。後で使いますのでとっておいてください。
+
+\end{enumerate}
+
+\section{引数が妥当かを確認する}
+
+この演習では再び{\color{red}\Q{bet_vol}}を修正し、正しい引数が与えられているかを確認します。前のバージョンでは引数が指定されないとエラーとなっていたことに注意してください。
+
+\begin{enumerate}
+\item 引数の数を確認する
+
+{\color{red}\Q{bet_vol}}を修正し、{\color{red}{\tt \$\#}}がゼロでないかどうかをtestすることで引数が実際に指定されたかどうかを確認します。
+
+もしtestが真の値を返すならば、警告(とスクリプトの使い方)を表示し、{\color{red}\Q{exit 1}}でスクリプトを止めます。(訳注: 原文では-1となっていますが、exit 1が正しいと思われます)
+
+\item ファイルの妥当性を確認する
+
+スクリプトの中で、{\color{red}{\tt \$\{1\}.nii.gz}}が存在して読み込み可能かをtestします({\color{red}\Q{help test}}を見てください)。もし存在しなければエラーメッセージを表示し、終了します。
+
+\item スクリプトを試す
+
+スクリプトが動作するかを確認します。最初に存在するファイルを指定し、次に存在しないファイルを指定します。
+
+\end{enumerate}
+
+\section{画像のバッチ処理}
+
+\begin{enumerate}
+\item 拡張子を除いたファイル名(basename)を変数として指定する
+
+''baserun''という名のスクリプトを準備します。このスクリプトでは、あるディレクトリにあるすべてのファイルの拡張子を除いたファイル名(vol0001.nii.gzならばvol0001)を表示(echo)します。このためには{\color{red}\Q{basename}}コマンドを使う必要があるでしょう。ヒント: {\color{red}\Q{basename vol0001.nii.gz .nii.gz}}の出力は{\color{red}\Q{vol0001}}になります。
+
+\item 複数の入力を指定する
+
+今のスクリプトを修正してディレクトリのすべてのファイルではなく、引数に指定したファイルをすべて使うようにしましょう。
+
+もし
+
+{\color{red}\Q{./baserun im2.nii.gz im3.nii.gz}}
+
+とタイプすると結果は
+
+{\color{red}{\tt
+im2
+
+im3}}
+
+となります。
+
+\item BETを複数回実行する
+
+BETをあるディレクトリにあるすべての画像に対して行います。
+
+出力画像は 画像ファイル{\color{red}\Q{_brain}}となります。
+
+{\color{red}\Q{./baserun im2.nii.gz im3.nii.gz}}
+
+とタイプして、BETがこの2つの画像に対して行われたかを確認してください。
+
+\end{enumerate}
+
+\section{ボクセルの容積を計算する}
+
+\begin{enumerate}
+
+\item ボクセルの容積を計算する
+
+pixdim1, pixdim2, pixdim3を見つけたスクリプトを修正してボクセルの容積を$mm^3$で計算し、その結果を表示するようにしてください。
+
+\item 画像の容積を計算する
+
+同様にdim1, dim2, dim3を見つけて画像全体の容積を$mm^3$で計算してください。
+
+
+\item Field of View (有効視野)を計算する
+
+各方向のFOVをmmで求め、表示してください。
+
+\end{enumerate}
+
+\section{Lightbox Viewer (画像一覧の作成)}
+
+\noindent (訳注: Lightboxに適切な日本語訳が見当たりませんでした。医療用語で言えばシャウカステンを思っていただくのがよいでしょうか。この文脈でのLightbox Viewerは、ある個人のボリューム画像から断層像の一覧を作成という意味になります)
+
+\begin{enumerate}
+
+\item 加算ループ
+
+{\color{red}\Q{while}}を使って0から第1引数で指定した値まで数えるループを作ってください。その値を画面に表示してください。
+
+\item 画像ファイルからスライスを生成する
+
+前のスクリプトを使って、{\color{red}\Q{im3}}のボリューム画像から最初のN番目のスライスを個々の画像として生成するスクリプトを書いてください。
+
+スライス画像を作成するには、次のコマンドを用います。
+
+{\color{red}\Q{slicer imagename -z -num output_num.ppm}}
+
+ここで{\color{red}\Q{num}}は(0から始まる)スライス番号を指します。
+
+\item 画像を見る
+
+個々のスライス画像を{\color{red}\Q{display}}を使って見てみましょう。
+
+\item スライス数の読み込み
+
+画像の総スライス数を自動で決めるために{\color{red}\Q{fslval}}を使ってください。
+
+\item すべての画像をひとつにマージする (上級)
+
+{\color{red}\Q{pngappend}}を使って個々のスライスをlightboxスタイルの1ファイルを作成してみてください。
+
+\end{enumerate}
+
+\section{刺激提示ファイルを処理する}
+
+\begin{enumerate}
+
+\item 実験の刺激提示サンプルファイル
+
+{\color{red}\Q{stim1.txt}}ファイルはevent-relatedの実験における刺激提示タイミングの情報を含んでいます。形式は以下のとおりです:
+
+Event No. \hspace{24pt} Condition Code \hspace{24pt} Onset Time \hspace{24pt} Comment
+
+このファイルをみて何が書かれていて、どのような書式になっているか確認してください。
+
+\item ある条件の行を抽出する
+
+{\color{red}\Q{grep}}を使って、{\color{red}\Q{b1}}を含むすべての行を抽出してください。
+
+\item Onset Time列を抽出する
+
+{\color{red}\Q{awk}}を使ってこれらの{\color{red}\Q{b1}}が入っている行からOnset Time列を抽出してください。
+
+そしてその値を変数として保存してください。
+
+\item 列を追加する
+
+Onset Time列の後に列を2つ追加してください。ひとつはfixed durationで値はすべての行で30となり、もうひとつはvalueで値はすべての行で1.0です。Onset, fixed duration, valueの3列があるとFEATのフォーマットになります。
+
+ヒント: 値を{\color{red}\Q{for}}でループさせます。
+
+結果を{\color{red}\Q{stim_b1.txt}}として保存してください。
+
+\item 他の条件での処理
+
+条件{\color{red}\Q{b2}}についても上と同じ事を繰り返してください。
+
+\item Onset timeを変更する(上級)
+
+(訳注: 原文は【TR】を変更するですが、上記の方がわかりやすいと思ったので変更しました)
+
+もしOnset timeの情報が秒でなく、ボリューム数だったならば(訳注: stim1.txtのOnset Timeはボリューム数です)、{\color{red}\Q{bc}}をつかってボリューム数を秒数に変更しましょう。TRは3.5秒です。
+
+\end{enumerate}
+
+\section{ファイル内容とファイル名の変更}
+
+カレントディレクトリ内にある{\em design.fsf}ファイルは標準的な1st levelでのFEATのセットアップファイルです。
+
+\bigskip
+
+{\color{red}\Q{sed}}を使って、ファイル中にある
+
+{\color{red}\Q{/usr/local/fmrib/www/fslcourse/fsl_course_data/melodic/denoise}}
+
+をすべて
+
+{\color{red}\Q{/Users/fsluser/fsl_course_data/scripting}}
+
+に変更し、新しいファイルとして保存しましょう。
+
+\bigskip
+
+FEATのためにこのようにして新しいデザインファイルをつくることで、同じデザインを異なるディレクトリで異なる被験者に対して使うことができます。正しいセットアップファイルができたならば、コマンドラインでFEATを小文字でタイプすることでFEATを呼び出すことができます。
+
+{\color{red}\Q{feat design.fsf}}
+
+\section{動画を作成する}
+
+このセクションは上級者向けです。ここでは回転する脳の断層像に''Maximum Intensity Projection''を重ねあわせます。
+
+\bigskip
+
+機能画像と背景画像がペアになったサンプルを2つ準備しています。ひとつは低解像度({\color{red}\Q{zstat2}}/{\color{red}\Q{example_func}})で、スクリプトをテストするときに便利です。もうひとつは高解像度({\color{red}\Q{hr_zstat1}}/{\color{red}\Q{highres}})で最終的に使用するためのものです。
+
+\bigskip
+
+出力はアニメーションGIFですので、ウェブブラウザで見ることができます。
+
+\bigskip
+
+\begin{enumerate}
+
+\item 入力パラメータ
+
+入力パラメータは以下になります。
+
+	\begin{itemize}
+	\item zstat画像
+	\item 背景画像
+	\item incremental rotation回転角度 (フレームが変わる毎に何度回転するか)
+	\item z値の閾値
+	\item 出力ファイル名
+	\end{itemize}
+
+\item 入力パラメータの確認
+
+	\begin{itemize}
+	\item スクリプトの入力パラメータの数が間違っていたら{\color{red}\Q{usage}}が出るようにしてください。
+	\item (スクリプト内で)入力画像が実際にあるか確認するようにしてください。
+	\item 背景画像とzstat画像のdimensionが同じかどうかを確認してください。
+	\end{itemize}
+
+
+\item 回転行列(rotation matrix)の作成
+
+{\color{red}\Q{x-y}}平面の中心を通る垂線を軸に回転する行列が必要となります。(0,0,0)は画像の中心ではないので、もう少し頭を使わなければなりません。
+
+	\begin{itemize}
+	\item 画像の中心がoriginになる行列を作成します
+
+	\item z軸を中心に回転(incremental rotation)する行列を作ります。
+
+		\begin{itemize}
+		\item ヒント1: bcを使って角度(incremental angle)をラジアンに変換しなければいけません: {\color{red}\Q{inc_rad=`echo "scale=10; $inc_deg * 3.1417 /180"|bc` ;}} %$
+
+		\item ヒント2: {\bf bc -l}を使って{\color{red}\Q{sin}}と{\color{red}\Q{cos}}を計算できます: {\color{red}\Q{cosinc=`echo "c($inc_rad)" | bc -l`; and sininc=`echo "s($inc_rad)"|bc -l`;}} 
+		\end{itemize}
+
+	\item 最初の行列の逆行列を作成することでoriginを画像の中心に移動します
+
+	\item これらの行列を結合し、{\color{red}\Q{x-y}}平面の中心を通る垂線を軸に回転する行列を生成します。
+
+	\end{itemize}
+
+
+\item 背景画像の生成
+
+MIP画像と一緒に回転する背景画像の一断面が必要です。おすすめは正中矢状断像です。{\color{red}\Q{fslmaths}}を{\color{red}\Q{-roi}}オプションと一緒に使うことで、正中矢状断像のスライス以外はすべて値が0で大きさが背景画像と同一の画像をつくることができます。この画像をMIP画像の下で回転させます。
+
+\item 動画の作成
+
+{\color{red}\Q{while}}ループで回転角度が360度に達するまで徐々に回転させます。このループの中で以下を実行する必要があります:
+
+	\begin{itemize}
+
+	\item {\color{red}\Q{fslmaths}}と{\color{red}\Q{-Xmax}}オプションを使って、ある角度におけるzstatと正中矢状断像のMIP像を作ります(出力は2Dです)
+
+	\item {\color{red}\Q{overlay}}を使って、ある閾値以上のzstatのMIP像を正中矢状断像にレンダリングします
+
+	\item {\color{red}\Q{slicer}}を使って、2D画像のppm画像を作ります
+
+	\item {\color{red}\Q{convert}}を使って、ppm画像をgif画像に変換します。
+
+	\item {\color{red}\Q{convert_xfm}}を使って、次の回転のための回転行列を作成します。
+
+	\item {\color{red}\Q{flirt}}を使って、zstat画像と正中矢状断像を次の位置に回転します。
+
+	\item {\color{red}\Q{gifmerge}}を使ってすべてのgifファイルをアニメーションgifにマージします。
+
+	\end{itemize}
+
+\item 不要なファイルの削除
+
+作成したファイルで不要なものは削除しましょう。
+
+\end{enumerate}
+
+
+\newpage
+
+
+\appendix
+
+\section{演習の回答例}
+
+\noindent (訳注: 最後の例を含め、訳者の環境(Ubuntu 12.04)でスクリプトが動作するか確認しています。なお、オリジナルサイトに回答例がなかったものについては、訳者が例を呈示しています。)
+
+\subsection{最初のスクリプト-BETを使う}
+
+\begin{verbatim}
+#!/bin/sh
+
+# Apply bet to the image called "vol" in this directory
+bet vol vol_brain
+\end{verbatim}
+
+\subsection{Echoとワイルドカード}
+
+\subsubsection{すべての画像を列挙する}
+
+\begin{verbatim}
+#!/bin/sh
+
+echo *.nii.gz ../*.nii.gz
+\end{verbatim}
+
+\noindent (訳注: もし親ディレクトリにnii.gzファイルがなかったら、echoの結果は文字通り../*.nii.gzと表示されます)
+
+\subsubsection{一部の画像を列挙する}
+
+\begin{verbatim}
+#!/bin/sh
+
+echo vol000[24680].nii.gz
+\end{verbatim}
+
+\subsubsection{画像をマージする}
+
+\begin{verbatim}
+#!/bin/sh
+
+fslmerge -t my4Dvolume vol000[24680].nii.gz 
+\end{verbatim}
+
+\subsection {コマンドラインの引数}
+
+\subsubsection{コマンドラインで画像のファイル名を指定する}
+
+\begin{verbatim}
+#!/bin/sh
+
+bet $1 $1_brain
+\end{verbatim}
+
+\subsubsection{BETに引数を渡す(上級)}
+
+\begin{verbatim}
+#!/bin/sh
+
+filename=$1
+shift
+bet $filename ${filename}_brain $@
+\end{verbatim}
+
+\noindent (訳注: これを使うときは、{\color{red}\Q{./bet_vol im2 -f 0.4 -g 0.1}}のような場合です。このとき、第1の引数であるim2が変数{\color{red}\Q{filename}}に代入されます。その後、{\color{red}\Q{shift}}によって、im2は取り除かれ、残りの-f 0.4 -g 0.1が{\color{red}{\tt \$1, \$2, \$3, \$4}}にセットされます。{\color{red}{\tt \$@}}によってこれらがまとめて引数として渡されます)
+
+\subsection{コマンドと変数}
+
+\begin{verbatim}
+#!/bin/sh
+
+sizex=`fslval $1 pixdim1`
+sizey=`fslval $1 pixdim2`
+sizez=`fslval $1 pixdim3`
+
+echo $sizex \* $sizey \* $sizez
+\end{verbatim}
+
+\subsection{引数が妥当かを確認する}
+
+\begin{verbatim}
+#!/bin/sh
+
+if [ $# -lt 1 ] ; then
+  echo "Usage: $0 <filename> [options]" ;
+  exit 1 ;
+fi
+
+if [ ! -f ${1}.nii.gz ] ; then
+  echo "File ${1}.nii.gz is not a regular file" ;
+  exit 2 ;
+fi
+
+filename=$1
+shift
+bet $filename ${filename}_brain $@
+\end{verbatim}
+
+\noindent (訳注: 上記でexit 1とexit 2とあります。exitは正常であれば0を返し、エラーは0以外を返します。そしてexitの結果は変数{\tt \$?}におさめられます。この場合、どちらも1を返すと、どちらでエラーを起こしたかわからなくなりますので、片方は1、もう片方は2を返すようになっていると考えられます)
+
+\subsection{画像のバッチ処理}
+
+\subsubsection{拡張子を除いたファイル名(basename)を変数として指定する}
+
+\begin{verbatim}
+#!/bin/sh
+
+for F in * ; do
+  basename $f .nii.gz
+done
+\end{verbatim}
+
+\subsubsection{複数の入力を指定する}
+
+\begin{verbatim}
+#!/bin/sh
+
+for F in $@ ; do
+  basename $f .nii.gz
+done
+\end{verbatim}
+
+\noindent (訳注: 上記2つの違いは最初の文の{\color{red}\Q{*}}と{\color{red}{\tt \$@}}です。{\color{red}{\tt \$@}}は全引数リストの特殊変数で、{\color{red}{\tt \$1 \$2 … \$n}} と同じ意味になります)
+
+\subsubsection{BETを複数回実行する}
+
+\begin{verbatim}
+#!/bin/sh
+
+for F in $@ ; do  
+  B=`basename $F .nii.gz`
+  echo "running BET on $B"
+  bet $B ${B}_brain
+done
+\end{verbatim}
+
+\noindent (訳注: 問題を言葉とおりにとらえると、ディレクトリの中にあるすべての画像ファイルに対してとなっていますので、下記が正解と思います。ここでは画像の拡張子を指定することでディレクトリのすべての画像を指定しています。上記では、自分で画像ファイルを指定しなければなりません)
+
+\begin{verbatim}
+#!/bin/sh
+
+for F in *.nii.gz ; do  
+  B=`basename $F .nii.gz`
+  echo "running BET on $B"
+  bet $B ${B}_brain
+done
+\end{verbatim}
+
+\subsection{ボクセルの容積を計算する}
+
+\subsubsection{ボクセルの容積を計算する}
+
+\begin{verbatim}
+#!/bin/sh
+
+sizex=`fslval $1 pixdim1`
+sizey=`fslval $1 pixdim2`
+sizez=`fslval $1 pixdim3`
+
+voxvol=`echo "$sizex * $sizey * $sizez" | bc -l` 
+echo "Voxel volume is $voxvol (in mm^3)"
+\end{verbatim}
+
+\noindent (訳注: pixdim1は1つのボクセルのx軸方向の長さです。同様にpixdim2はy軸方向、pixdim3はz軸方向の長さを示します。ボクセルの容積はこれら3つの値をかけあわせればよいことになります)
+
+\subsubsection{画像の容積を計算する}
+
+\begin{verbatim}
+#!/bin/sh
+
+sizex=`fslval $1 pixdim1`
+sizey=`fslval $1 pixdim2`
+sizez=`fslval $1 pixdim3`
+
+voxvol=`echo "$sizex * $sizey * $sizez" | bc -l` 
+echo "Voxel volume is $voxvol (in mm^3)"
+
+nx=`fslval $1 dim1`
+ny=`fslval $1 dim2`
+nz=`fslval $1 dim3`
+
+imvol=`echo "$nx * $ny * $nz * $voxvol" | bc -l`
+echo "Image volume is $imvol (in mm^3)"
+\end{verbatim}
+
+\noindent (訳注: ここでdim1は画像のx軸方向のボクセルの数を示します。dim2, dim3は同様にy軸方向、z軸方向のボクセル数を示します。今、画像の容積を求めたいので、dim1, dim2, dim3の値をかけあわせて、さらに先程求めたボクセルの容積({\tt \$voxvol})をかければよいことになります)
+
+\subsubsection{Field of View (有効視野)を計算する}
+
+\begin{verbatim}
+#!/bin/sh
+
+sizex=`fslval $1 pixdim1`
+sizey=`fslval $1 pixdim2`
+sizez=`fslval $1 pixdim3`
+
+voxvol=`echo "$sizex * $sizey * $sizez" | bc -l` 
+echo "Voxel volume is $voxvol (in mm^3)"
+
+nx=`fslval $1 dim1`
+ny=`fslval $1 dim2`
+nz=`fslval $1 dim3`
+
+imvol=`echo "$nx * $ny * $nz * $voxvol" | bc -l`
+echo "Image volume is $imvol (in mm^3)"
+
+fovx=`echo "$sizex * $nx" | bc -l`
+fovy=`echo "$sizey * $ny" | bc -l`
+fovz=`echo "$sizez * $nz" | bc -l`
+
+echo "FOV is $fovx by $fovy by $fovz (in mm)"
+\end{verbatim}
+
+\noindent (訳注: 有効視野は画像の3軸方向の長さを求めればよいことになります。x軸方向だったら、x軸のボクセルの長さ $\times$ x軸方向のボクセルの数で長さが求まります。つまりpixdim1とdim1の値をかければよいことになります)
+
+\subsection{Lightbox Viewer}
+
+\noindent(訳注: ここはオリジナルに回答例がありませんでしたので、訳者が回答例を記載しています)
+
+\subsubsection{加算ループ}
+
+\begin{verbatim}
+#!/bin/sh
+
+if [ $# -lt 1 ] ; then
+  echo "Usage: $0 <filename> [options]" ;
+  exit 1 ;
+fi
+
+a=0
+while [ $a -lt $1 ] ; do
+ a=`echo "$a + 1" | bc`
+done
+echo $a
+\end{verbatim}
+
+\noindent (訳注: 前半は引数があるかどうかの確認です。後半は、まず、{\tt a}という変数に初期値0を投入しています。その後、test文で{\tt \$a}が引数で示した値より小さいならば、{\tt \$a}に1を足したものを新たに{\tt a}に代入しています。{\tt a}が引数より大きくなるまでこのループが続きます)
+
+\subsubsection{スライス画像の生成}
+
+\begin{verbatim}
+#!/bin/sh
+
+if [ $# -lt 1 ] ; then
+echo "Usage: $0 <filename> [options]" ;
+exit 1 ;
+fi
+
+num=0
+while [ $num -lt $1 ] ; do
+ num=`echo "$num + 1" | bc`
+ slicer im3 -z -${num} output_${num}.ppm
+done
+echo "The number of slices are ${num}."
+\end{verbatim}
+
+\subsubsection{画像の確認}
+
+\subsubsection{スライス数の読み込み}
+
+\begin{verbatim}
+slices=`fslval $1 dim3`
+\end{verbatim}
+
+\subsubsection{すべての画像をひとつにマージする (上級)}
+
+\begin{verbatim}
+#!/bin/sh
+
+if [ $# -lt 1 ] ; then
+ echo "Usage: $0 <filename> [options]" ;
+ exit 1 ;
+fi
+
+slices=`fslval $1 dim3`
+num=0
+while [ $num -lt $slices ] ; do
+ num=`echo "$num + 1" | bc`
+ output=$1_output_${num}.png
+ slicer $1 -z -${num} $output
+ inputarg=`echo "$inputarg + $output"`
+done
+
+echo "The number of slices are ${num}."
+
+pngappend `echo $inputarg | sed 's/+//'` $1_lightbox.png
+\end{verbatim}
+
+\noindent (訳注: 最後のpngappendですが、使い方は \Q{pngappend input1 + input2 + input3 output}となっています。このため、上記の\Q{inputarg=`echo "$inputarg + $output"`}で、\Q{+ image1 + image2 + image3 ...}という変数を作り、最初の\Q{+}が不要なので、\Q{sed}を用いて削除しています。それが{\tt `echo \$inputarg | sed 's/+//'`}の部分です。)
+
+
+\subsection{刺激提示ファイルを処理する}
+
+\subsubsection{実験の刺激提示サンプルファイル}
+
+\subsubsection{ある条件の行を抽出する}
+
+\begin{verbatim}
+grep b1 stim1.txt
+\end{verbatim}
+
+\subsubsection{タイミング列を抽出する}
+
+\begin{verbatim}
+b1times=`grep b1 stim1.txt | awk '{print $3}'`
+\end{verbatim}
+
+\subsubsection{列を追加する}
+
+\begin{verbatim}
+#!/bin/sh
+
+filename=stim1.txt
+
+b1times=`grep b1 $filename | awk '{print $3}'`
+for t in $b1times ; do
+  echo "$t 30.0 1.0" >> stim1_b1.txt
+done
+\end{verbatim}
+
+\subsubsection{他の条件での処理}
+
+\begin{verbatim}
+#!/bin/sh
+
+filename=stim1.txt
+
+b1times=`grep b1 $filename | awk '{print $3}'`
+for t in $b1times ; do
+  echo "$t 30.0 1.0" >> stim1_b1.txt
+done
+
+b2times=`grep b2 $filename | awk '{print $3}'`
+for t in $b2times ; do
+  echo "$t 30.0 1.0" >> stim1_b2.txt
+done
+\end{verbatim}
+
+\subsubsection{Onset timeを変更する(上級)}
+
+\begin{itemize}
+\item 基本的な方法
+
+\begin{verbatim}
+#!/bin/sh
+
+filename=stim1.txt
+tr=3.5
+
+b1times=`grep b1 $filename | awk '{print $3}'`
+for t in $b1times ; do
+  tsec=`echo $t \* $tr | bc`
+  echo "$tsec 30.0 1.0" >> stim1_b1.txt
+done
+
+b2times=`grep b2 $filename | awk '{print $3}'`
+for t in $b2times ; do
+  tsec=`echo $t \* $tr | bc`
+  echo "$tsec 30.0 1.0" >> stim1_b2.txt
+done
+\end{verbatim}
+
+
+\item エレガントな方法
+
+\begin{verbatim}
+#!/bin/sh
+
+filename=stim1.txt
+tr=3.5
+
+for cond in b1 b2 ; do
+  times=`grep ${cond} $filename | awk '{print $3}'`
+  for t in $times ; do
+    tsec=`echo $t \* $tr | bc`
+    echo "$tsec 30.0 1.0" >> stim1_${cond}.txt
+  done
+done
+\end{verbatim}
+
+\end{itemize}
+
+\subsection{ファイル内容とファイル名の変更}
+
+\begin{verbatim}
+sed 's/\/usr\/local\/fmrib\/www\/fslcourse\/fsl_course_data\/melodic\/denoise
+/\/Users\/fsluser\/fsl_course_data\/scripting/g' design.fsf > design2.fsf
+\end{verbatim}
+
+\noindent (訳注: ディレクトリを置換する場合、sedの区切り文字を/でなく下記のように@などにすると便利です)
+
+\begin{verbatim}
+sed 's@/usr/local/fmrib/www/fslcourse/fsl_course_data/melodic/denoise/
+@/Users/fsluser/fsl_course_data/scripting/g' design.fsf > design2.fsf
+\end{verbatim}
+
+\subsection{動画の作成}
+\noindent(訳注: オリジナル通りのソースですが、Ubuntuでは12.04以降ではgifmergeのコマンドがないなどいくつか問題があり、このままでは動作しませんでした。訳者の実力ではまだ全部デバッグできないので、オリジナルソースのまま掲載します)
+
+\begin{verbatim}
+#!/bin/sh
+
+if [ $# -lt 5 ];then 
+    echo ""
+    echo "Usage: spinning_mip <zstat> <struct> <incremental angle> <zthresh> <output.gif>"
+    echo ""
+    echo "incremental angle should be in  degrees and will be rounded to integer."
+    echo ""
+    echo ""
+    exit 1;
+fi
+zstat=`basename $1 .nii.gz`;
+
+struct=`basename $2 .nii.gz`;
+incdeg=`echo "$3 / 1"|bc`;
+inc=`echo "scale=10; $3 * 3.1417 /180"|bc` ;
+zthresh=$4;
+output=$5;
+
+#check all the files exist
+if [ ! -e ${zstat}.nii.gz ];then
+    echo "$1 - Not a valid image"
+    exit 2
+fi 
+
+if [ ! -e ${struct}.nii.gz ];then
+    echo "$2 - Not a valid image"
+    exit 3
+fi 
+
+# grab the dimensions of the two images
+xz=`${FSLDIR}/bin/fslval $zstat dim1`;
+yz=`${FSLDIR}/bin/fslval $zstat dim2`;
+zz=`${FSLDIR}/bin/fslval $zstat dim3`;
+xs=`${FSLDIR}/bin/fslval $struct dim1`;
+ys=`${FSLDIR}/bin/fslval $struct dim2`;
+zs=`${FSLDIR}/bin/fslval $struct dim3`;
+ 
+# check all the dimensions match
+if [ ! ${xz} -eq ${xs} -o ! ${yz} -eq ${ys} -o ! ${zz} -eq ${zs} ];then
+    echo "$1 and $2 have different image dimensions - fool"
+    exit 4; 
+fi 
+
+
+
+## create a matrix which translates image from centre to (0,0,0) 
+xpixdim=`${FSLDIR}/bin/fslval $struct pixdim1`;
+ypixdim=`${FSLDIR}/bin/fslval $struct pixdim2`;
+zpixdim=`${FSLDIR}/bin/fslval $struct pixdim3`;
+
+xfov=`echo "$xz * $xpixdim"|bc`;
+yfov=`echo "$yz * $ypixdim"|bc`;
+zfov=`echo "$zz * $zpixdim"|bc`;
+
+xtrans=`echo "$xfov / 2"|bc`;
+ytrans=`echo "$yfov / 2"|bc`;
+ztrans=`echo "$zfov / 2"|bc`;
+
+
+echo "1 0 0 -$xtrans" > ${$}cent_to_origin.mat ;
+echo "0 1 0 -$ytrans" >> ${$}cent_to_origin.mat ;
+echo "0 0 1 -$ztrans" >> ${$}cent_to_origin.mat ;
+echo "0 0 0 1" >> ${$}cent_to_origin.mat ;
+ 
+# invert this matrix to translate back to center
+${FSLDIR}/bin/convert_xfm -omat ${$}origin_to_cent.mat -inverse ${$}cent_to_origin.mat;
+##create a matrix to incrementally rotate around z-axis
+cosinc=`echo "c($inc)" | bc -l`;
+sininc=`echo "s($inc)"|bc -l`;
+
+echo "$cosinc -$sininc 0 0" > ${$}incrot_orig.mat;
+echo "$sininc $cosinc 0 0" >>${$}incrot_orig.mat;
+echo "0 0 1 0">>${$}incrot_orig.mat;
+echo "0 0 0 1">>${$}incrot_orig.mat;
+
+#concatinate the three matrices to give you your overall incremental rotation
+${FSLDIR}/bin/convert_xfm  -omat ${$}tmp.mat -concat ${$}incrot_orig.mat ${$}cent_to_origin.mat;
+${FSLDIR}/bin/convert_xfm -omat ${$}incrot_cent.mat -concat ${$}origin_to_cent.mat ${$}tmp.mat;
+
+
+#find the mid-sagittal slice to render on and the max zstat
+halfx=`echo "$xz / 2"|bc`
+zmax=`fslstats $zstat -R| awk '{print $2}'`
+
+#initialsie things b4 the rotation loop
+totinc=0;
+cp ${zstat}.nii.gz ${$}rot_zstat.nii.gz;
+${FSLDIR}/bin/fslmaths ${struct} -roi $halfx 1 0 $yz 0 $zz 0 1 ${$}${struct}_mid_sag
+cp ${$}${struct}_mid_sag.nii.gz ${$}rot_struct.nii.gz;
+
+echo "1 0 0 0"> ${$}tot_rot.mat
+echo "0 1 0 0">> ${$}tot_rot.mat
+echo "0 0 1 0">> ${$}tot_rot.mat
+echo "0 0 0 1">> ${$}tot_rot.mat
+
+
+### Nearly there!!
+while [ $totinc -lt 360 ];do
+    echo "$totinc of 360 completed" 
+    #The mip
+    ${FSLDIR}/bin/fslmaths ${$}rot_zstat -Xmax ${$}rot_zstat_mip; 
+    #The background slice
+    ${FSLDIR}/bin/fslmaths ${$}rot_struct -Xmax ${$}rot_struct_mip;
+    #smooth it a bit to make it look nice 
+    ${FSLDIR}/bin/fslmaths ${$}rot_struct_mip -s 1.5 ${$}rot_struct_mip
+    #Do the rendering
+    ${FSLDIR}/bin/overlay 0 1 ${$}rot_struct_mip -a ${$}rot_zstat_mip $zthresh $zmax ${$}rend_mip;
+    #create a ppm
+    ${FSLDIR}/bin/slicer ${$}rend_mip -x 0 ${$}rend${totinc}.ppm 
+    #convert it to a gif
+    ${FSLDIR}/bin/convert ${$}rend${totinc}.ppm ${$}rend${totinc}.gif
+    
+    #create the next rotation matrix 
+    #(note - we are always rotating the original images 
+    # to avoid successive interpolations)
+    ${FSLDIR}/bin/convert_xfm -omat ${$}tot_rot.mat -concat ${$}incrot_cent.mat ${$}tot_rot.mat;
+    
+    #Do the next rotations
+    ${FSLDIR}/bin/flirt -ref $zstat -in $zstat -applyxfm -init ${$}tot_rot.mat -o ${$}rot_zstat; 
+    ${FSLDIR}/bin/flirt -ref ${$}${struct}_mid_sag -in ${$}${struct}_mid_sag -applyxfm -init ${$}tot_rot.mat -o ${$}rot_struct;
+    
+    #remember how  far we've rotated.
+    totinc=`echo "$totinc + $incdeg"|bc`; 
+   
+done 
+#merge all the gifs we've made
+gifmerge -10 -l0 ${$}rend?.gif ${$}rend??.gif ${$}rend???.gif > $output
+
+#remove temporary files
+rm ${$}*;
+\end{verbatim}
+
+\end{document}
+
