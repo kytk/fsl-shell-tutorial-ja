@@ -1,0 +1,1125 @@
+\documentclass{jsarticle}
+\usepackage{amsmath}
+\usepackage[dvipdfmx]{graphicx, color}
+\usepackage[
+dvipdfmx,
+bookmarks=true,
+bookmarksnumbered=true,
+bookmarkstype=toc,
+bookmarksopen=true,
+pdftitle={FSL course: シェルスクリプト},
+pdfauthor={根本清貴},
+pdfsubject={ },
+pdfkeywords={シェルスクリプト},
+pdfdisplaydoctitle=true,
+pdfstartview={FitH},
+colorlinks=true,
+]{hyperref}
+\usepackage{pxjahyper}
+\pagestyle{headings}
+\usepackage[Q=yes]{examplep}
+
+
+\begin{document}
+\title{FSL course: シェルスクリプト\thanks{\url{http://fsl.fmrib.ox.ac.uk/fslcourse/lectures/scripting/}}} 
+\author{FMRIB Group \\ 翻訳: 根本 清貴\thanks{FMRIBのSteve Smith教授の許諾を得て翻訳しました}}
+\date{\today}
+\maketitle
+\thispagestyle{empty}
+
+スクリプトを知っていると…
+\begin{itemize}
+\item よく使うコマンドをファイルひとつにまとめられます
+\item 処理を自動化/バッチ化できます
+\item 柔軟で設定可能な新たなツールを作成できます
+\item 他の人が作ったスクリプトやツールを理解できます
+\end{itemize}
+
+\begin{quote}
+{\color{blue} ''3年前にスクリプトを無理にでも教えてくれたらよかったのに!'' - Dr. Parry}
+\end{quote}
+
+\tableofcontents
+
+\section{はじめに}
+
+\begin{itemize}
+\item よく使われるスクリプト言語には以下のようなものがあります。
+	\begin{itemize}
+	\item シェルスクリプト sh, bash, csh, tchs
+	\item 他のスクリプト言語 TCL, Perl, Python
+	\end{itemize}
+\item ここでは、{\bf sh}を使います。シンプルで、移植性が高いのに加え、強力でコマンドラインのように使えるからです。
+\item 繰り返しのタスクは{\bf すごく}速く処理できます。
+\item スクリプトはどのコマンドが実行されたかの正確な記録ともいえます。
+\item スクリプトを使うことで手入力で起こる小さなエラーを避けることができます。
+\item スクリプトを知っていると画像解析だけでなく様々なところで便利です。
+	\begin{itemize}
+	\item 異なるオプションのBETを自動で呼び出す
+	\item コマンドひとつで被験者の画像の様々な値を求める
+	\item 刺激提示データや行動データから刺激のタイミングを抽出する
+	\item ファイル名をまとめて変更する
+	\item ファイルの拡張子をまとめて変更する(例 pngをtiffに)
+	\end{itemize}
+\end{itemize}
+
+
+\section{データ管理}
+
+
+\begin{itemize}
+\item スクリプトで悩みすぎて気が狂わないように系統だったファイル名とディレクトリ名をつけることをおすすめします。
+	\begin{itemize}
+	\item 例: {\color{red}Con0001 , Con0002, Con0003 , ... , Con0020, Pat0001, Pat0002, ... , Pat0020}
+	\end{itemize}
+\item {\color{red}Con20}ではなく、{\color{red}Con0020}のようにゼロを並べるようにすると一貫性をもたせることができ、スクリプトが容易になります。
+\item イギリスでは(他の国でもそうでしょうが)、ファイル名に個人を特定できる情報(氏名、生年月日、イニシャル)を入れることは禁止されています。
+\item 元のファイル名をより意味があって、一貫性のあるファイル名に変更しましょう。
+\item ディスク量をチェックし、正しくない解析ファイルは削除しましょう。(多くの人が、{\color{red}res.feat, res+.feat, res++.feat, res+++.feat}のようなファイルを保存していて、これらは混乱の元ですし、ディスクの無駄遣いです) 
+\end{itemize}
+
+
+\section{シェルスクリプトの基本}
+
+
+\begin{itemize}
+\item Bourneシェル(sh)スクリプトは、ひとつのファイルの中にコマンドが何行かにわたって記載されており、bashの原型であるBourneシェルで動作します。もっとも単純なスクリプトは、ターミナルのプロンプトから入力するコマンドと同じです。
+\item {\color{red}{\bf shスクリプトの最初の行は必ず}} {\color{red}{\tt \#!/bin/sh}}です。
+\item 以下を覚えていてください。
+	\begin{itemize}
+	\item スクリプトには実行権限をつけることを忘れないでください。
+
+	{\color{red}\Q{chmod a+x filename}}
+
+	\item スクリプトはカレントディレクトリ(pwd)の中で走ります。
+	\item 同じ環境を引き継がないかもしれません。特に他人の環境で動作させる場合には気をつけてください。
+	\end{itemize}
+
+\item 例
+
+{\color{red}{\tt
+\#!/bin/sh
+
+bet im1 im1\_brain -m
+
+mv im1\_brain\_mask.nii.gz mask1.nii.gz
+}} 
+
+\item スクリプトはいつでも{\color{red}\Q{return}}を使うことで停止できます。例: {\color{red}\Q{return 0}}
+
+\end{itemize}
+
+
+
+\subsection*{演習}
+
+ここで{\bf 演習: 最初のスクリプト-BETを使う}をやってみましょう。
+
+
+\subsection{シェルスクリプトの便利なテンプレート}
+
+
+\begin{itemize}
+\item 系統的に学ぶ前に、シンプルだけれども非常に強力で有用なスクリプトを提示しましょう。これはいろいろな状況にあわせて修正できます。
+
+\bigskip
+
+{\color{red}{\tt{
+
+\#!/bin/sh
+
+for filename in *.nii.gz ; do
+
+　fname=`\$FSLDIR/bin/remove\_ext \$\{filename\}`
+
+　fslmaths \$\{fname\} -s 2 \$\{fname\}\_smooth2
+
+　mv \$\{fname\}.nii.gz \$\{fname\}\_smooth0.nii.gz
+
+done
+
+}}}
+
+\bigskip
+
+\item このスクリプトがすることは… 個々の画像(*.nii.gz)に対して、平滑化を行い、\_smooth2で終わる別名のファイルとして保存し、元の平滑化されていない画像を、\_smooth0で終わるファイルとして保存します。
+
+\item どのように動作するか:
+
+	\begin{itemize}
+	\item *.nii.gzに合致するファイルがひとつずつ{\em for}ループの中で変数{\color{red}\Q{filename}}にセットされます。
+
+	\item {\tt filename}から拡張子(nii.gz)を除いたファイル名が変数{\color{red}\Q{fname}}にセットされます。どうやってこんなことができるかは心配しないでください。詳細は後で説明します。
+
+	\item {\color{red}\Q{${filename}}}と{\color{red}\Q{${fname}}}は変数の値(内容)を得るために使われます。
+	\item {\color{red}\Q{fslmaths}}は平滑化を行うために使われています。
+	\item {\color{red}\Q{mv}}はファイル名の変更のために使われています。(ここでは.nii.gzが必要なことに注意してください。fslの様々なツールは.nii.gzがあってもなくても動作するようになっています)
+	\end{itemize}
+\end{itemize}
+
+
+\subsection{スクリプトのコツ}
+
+
+スクリプトを書くにはいくつかのコツがあります。
+
+\begin{itemize}
+\item コメントを入れましょう。(何ヶ月後もしくは何年後でも記憶を呼び起こせるようにです)
+\item スクリプトが走っているときに何をしているかがわかるように{\color{red}\Q{echo}}コマンドを入れておきましょう。
+\item もしスクリプトが変なことをはじめたり、何も動いていないようだったら、\Q{Ctrl-C}で止めることができます。
+\item もし、ファイルを新規に作成したり、ファイルを変更したり、ファイルを削除したりするスクリプトを書くのだったら、まず最初にそれらの大事なコマンドの前に{\color{red}\Q{echo}}を使ってください。このバージョンを走らせると、そのスクリプトはコマンドをただスクリーンに表示します。これを注意深く確認してください。きちんと書けていたら、{\color{red}\Q{echo}}をとってスクリプトを走らせてください。
+\item 万が一のために大事なファイルのバックアップはとっておきましょう。
+\end{itemize}
+
+
+\section{基本的なスクリプトの理解}
+
+
+\begin{itemize}
+\item これから系統的に以下の項目をみていきます。
+
+	\begin{itemize}
+	\item ワイルドカード
+	\item echo (スクリーンやファイルに表示)
+	\item 変数
+	\item かっこ
+	\item コマンドラインの引数
+	\item シングルクオートとバックスラッシュ
+	\item ダブルクオート
+	\item バッククオート
+	\item パイプ
+	\item ファイルのリダイレクション
+	\end{itemize}
+\item その後にfor構文のような便利なツールやプログラムの構造をとりあげていきます。
+\end{itemize}
+
+
+\subsection{ワイルドカード}
+
+
+
+ワイルドカードはファイル名のパターンマッチングに使うことができます。たとえば…
+
+\begin{itemize}
+\item {\color{red}\Q{*}}は任意の文字列をあらわします。
+
+\item {\color{red}\Q{?}}は任意の一文字をあらわします。
+
+\item {\color{red}\Q{[abgj]}}は括弧内にある文字列のリストもしくは範囲内にある任意の一文字をあらわします。
+\end{itemize}
+
+{\color{red}{\tt 
+
+\$ ls {\color{green}{\small (ディレクトリ内のファイルを表示)}}
+
+　sub1\_t1.nii.gz sub1\_t2.nii.gz sub2\_t1.nii.gz sub2\_t2.nii.gz sub3\_pd.nii.gz
+
+\$ ls sub* {\color{green}{\small (subから始まるファイルを表示)}}
+
+　sub1\_t1.nii.gz sub1\_t2.nii.gz sub2\_t1.nii.gz sub2\_t2.nii.gz sub3\_pd.nii.gz
+
+}}
+
+{\color{red}{\tt 
+
+\$ ls sub1* {\color{green}{\small (sub1から始まるファイルを表示)}}
+
+　sub1\_t1.nii.gz sub1\_t2.nii.gz
+
+\$ ls sub*t1*　{\color{green}{\small (subから始まり途中にt1があるファイルを表示)}}
+
+　sub1\_t1.nii.gz sub2\_t1.nii.gz
+
+\$ ls sub[13]* {\color{green}{\small (subから始まり次に1か3があるファイルを表示)}}
+
+　sub1\_t1.nii.gz sub1\_t2.nii.gz sub3\_pd.nii.gz
+
+\$ ls sub?\_t2.nii.gz {\color{green}{\small (subから始まり次に任意の1文字が来て、その後に\_t2.nii.gzとなるファイルを表示)}}
+
+　sub1\_t2.nii.gz sub2\_t2.nii.gz 
+
+}}
+
+
+
+\subsection{ECHO}
+
+
+\begin{itemize}
+\item {\color{red}\Q{echo}}はそれ以降の文字列を画面(標準出力)に表示します。
+\item これは出力を表示したり、スクリプトの進捗状況を表示するのに便利です。
+
+\bigskip
+
+\item ファイル名に対するワイルドカードや変数はechoが結果を表示する{\color{red}{\bf 前に}}置き換えられます。
+
+\bigskip
+
+\item 例
+
+{\color{red} {\tt 
+\$ echo Hello All!
+
+　Hello All!
+
+\$ echo sub*t1*
+
+　sub1\_t1.nii.gz sub2\_t1.nii.gz
+
+\$ echo j*k
+
+　j*k
+}}
+
+\end{itemize}
+
+\subsection*{演習}
+
+ここで{\bf 演習: Echoとワイルドカード}をやってみましょう。
+
+
+
+\subsection{変数}
+
+
+\begin{itemize}
+\item たいていのプログラミング言語と同じように、シェルは様々なものを変数として保存することができます。
+\item シェル変数はすべて{\color{red}{\bf 文字列}}です。
+
+\item 変数は次のようにして設定します。
+
+{\color{red}{\bf
+変数名=値
+}}
+
+\item 変数の名前はアルファベットで始まらなければいけませんが、その後には数字や下線\_を使うことができます。
+\item 変数の値は{\color{red}{\tt \$}}を変数の前につけることによって、使うことができます。
+
+\item 例
+
+{\color{red}{\tt
+\$ var1=im1.nii.gz
+
+\$ echo \$var1
+
+　im1.nii.gz
+
+\$ echo var1
+
+　var1
+
+\$ ls \$var1
+
+　im1.nii.gz 
+}}
+
+\end{itemize}
+
+
+\subsection{かっこ}
+
+
+
+\begin{itemize}
+
+\item アルファベットから始まる名前はなんでも変数名として使うことができます。
+\item 例:{\color{red}\Q{v, v1, v1_1, v_filename_4}}
+\item 変数の直後に文字列をつけると混乱の元になります。
+\item こんなとき、変数名をかっこの中にいれると問題がなくなります。
+
+\item 例:
+
+{\color{red}{\tt 
+
+\$ v=im1
+
+\$ echo \Q{$v_new} {\color{green}{\small (v\_newという変数を意味してしまう)}}
+
+　(何も表示されない)
+
+\$ echo \Q{${v}_new} {\color{green}{\small (変数vの後に\_newがついた文字列として認識される)}}
+
+　im1\_new 
+}}
+
+\item 注意:まだ使われていない変数はデフォルトで空となっています。(エラーは出力されません)
+\end{itemize}
+
+
+
+
+\subsection{引数}
+
+
+\begin{itemize}
+
+\item スクリプトの中で、変数{\color{red}\Q{$1 $2 $3}}などはコマンドラインの引数の値を保存しています。
+\item たとえば、\Q{reg_vol}というスクリプトが次のように実行されたとします。
+
+{\color{red}\Q{$ reg_vol im1 3 abc}}
+
+このとき、{\color{red}\Q{$1 = im1, $2 = 3, $3 = abc}}となります。
+
+\item その他の特殊変数としては以下のようなものがあります。
+
+	\begin{itemize}
+	\item {\color{red}{\tt \$0}} = スクリプト名(しばしばパスも含まれます)
+	\item {\color{red}{\tt \$\#}} = 与えられた引数の数
+	\item {\color{red}{\tt \$@}} = すべての引数　(すなわち、{\color{red}\Q{$1 $2 $3 ...}} )
+	\item {\color{red}{\tt \$\$}} = プロセスID (このプロセスに一意の値) 
+	\end{itemize}
+
+\end{itemize}
+
+
+
+\subsection*{演習}
+
+ここで{\bf 演習: コマンドラインの引数}をやってみましょう。
+
+
+\subsection{シングルクオートとバックスラッシュ}
+
+
+\begin{itemize}
+\item シェルは変数とワイルドカードをコマンドを実行する{\color{red}{\bf 前に}}展開してしまいます。
+
+	\begin{itemize}
+	\item ときにこれは望ましくないことがあります。
+	\end{itemize}
+
+\item 展開されてしまうことを避けるために以下の方法があります。
+
+	\begin{enumerate}
+	\item 特殊記号(ワイルドカードや{\tt \$})の前にバックスラッシュ\textbackslash{}をつける
+	\item シングルクオート{\color{red}\Q{'}}で囲む
+	\end{enumerate}
+
+\item 例:
+
+{\color{red}{\tt 
+
+\$ var1=im1.nii.gz
+
+\$ echo \$var1  {\color{green}{\small (\$var1の値が展開される)}}
+
+　im1.nii.gz
+
+\$ echo \textbackslash{}\$var1  {\color{green}{\small (バックスラッシュによって\$がただの文字となり展開されない)}}
+
+　\$var1
+
+\$ echo '\$var1' {\color{green}{\small (シングルクオートで囲まれた文字列は展開されない)}}
+
+　\$var1 
+}}
+
+\end{itemize}
+
+
+\subsection{ダブルクオート}
+
+
+\begin{itemize}
+
+\item いくつかの文字列をまとめてひとつの引数として扱う場合には、ダブルクオート{\color{red}\Q{"}}を使う必要があります。
+
+\item 例:
+
+{\color{red}{\tt
+
+\$ v=Hello World
+
+\$ echo \$v
+
+　Hello
+
+\$ v="Hello World"
+
+\$ echo \$v
+
+　Hello World 
+}}
+
+\item 注意:変数の置き換えはダブルクオートの中で行われますが、ワイルドカードは展開されません。
+
+例. {\color{red}\Q{echo "*"}}はただ{\color{red}\Q{*}}と表示されますが、
+
+{\color{red}\Q{echo "$v"}}は{\color{red}\Q{echo $v}}と同一です。
+
+\end{itemize}
+
+
+\subsection{バッククオート}
+
+
+\begin{itemize}
+\item コマンドの実行結果(の文字列)はバッククオート{\color{red}\Q{`}}を使うことで取り込むことができます。
+\item これは変数の設定にとても便利です。
+\item 例:
+
+{\color{red}{\tt
+
+\$ v=`ls sub[13]*`
+
+\$ echo \$v
+
+　sub1\_t1.nii.gz sub1\_t2.nii.gz sub3\_pd.nii.gz
+
+\$ echo `fslval sub1\_t1 pixdim2`
+
+　4.0 
+}}
+
+\item 注意:結果はたとえスペースを含んでいたとしても、単一の文字列として扱われます。
+\end{itemize}
+
+
+
+\subsection*{演習}
+
+ここで{\bf 演習: コマンドと変数}をやってみましょう。
+
+
+\subsection{パイプ}
+
+
+\begin{itemize}
+\item シェルの非常に使い勝手の良い特徴のひとつに、複数のコマンドをつないで実行できるというものがあります。前のコマンドの出力結果を次のコマンドに渡します。
+
+\item このためにはパイプ{\color{red}\Q{|}}を使います。
+
+\item 例(単語を数えるwcというユーティリティを使います)
+
+{\color{red}{\tt
+\$ cat .bashrc | wc
+
+　7   83   534  {\color{green}{\small (7行83単語534文字)}}
+
+\$ echo "Hello World" | wc
+
+　1   2   12  {\color{green}{\small (1行2単語12文字(空白と改行コードも1文字としてカウント))}}
+}}
+
+\item もう少しテクニカルに説明すると、パイプはあるコマンドの標準出力を別のコマンドの標準入力にリダイレクトします。
+
+\item 標準エラー出力に出力されるエラーメッセージはパイプでリダイレクト{\color{red}{\bf されません}}。
+
+\end{itemize}
+
+
+\subsection{リダイレクション}
+
+
+\begin{itemize}
+\item あるファイルからコマンドに入力したい場合は{\color{red}\Q{<}}を使います。
+\item あるファイルにコマンドの結果を出力したい場合は{\color{red}\Q{>}}を使います。
+\item コマンドの結果をあるファイルに追加したい場合は{\color{red}\Q{>>}}を使います。
+
+\item 例:
+
+{\color{red}{\tt
+
+\$ echo "smoothing=10mm" \Q{>} settings.txt
+
+\$ echo "No lowpass" \Q{>>} settings.txt
+
+\$ cat settings.txt
+
+smoothing=10mm
+
+No lowpass 
+}}
+
+\end{itemize}
+
+
+\section{便利なシェルのプログラム}
+
+
+\begin{itemize}
+
+\item シェルスクリプトに共通かつほぼ必須のプログラムは以下のとおりです。
+
+\bigskip
+
+基本
+
+	\begin{itemize}
+	\item {\color{red}\Q{test}} (または{\color{red}\Q{[ ]}})
+	\item {\color{red}\Q{if}}
+	\item {\color{red}\Q{for}}
+	\item {\color{red}\Q{while}}
+	\end{itemize}
+
+アドバンス
+	\begin{itemize}
+	\item {\color{red}\Q{grep}} (検索)
+	\item {\color{red}\Q{bc}} (計算機)
+	\item {\color{red}\Q{sed}} (検索と置換)
+	\item {\color{red}\Q{awk}} (列の選択)	
+	\end{itemize}
+
+\end{itemize}
+
+
+\subsection{TEST}
+
+
+\begin{itemize}
+
+\item {\color{red}\Q{test}}コマンドは2つの文字列もしくは整数を比較します。
+\item 別の簡便な表し方は引数を{\color{red}\Q{[}}と{\color{red}\Q{]}}でくくることです。
+
+注意:スペースを正しくいれるようにしてください！
+
+\item 文字列を比較するのか整数を比較するのかで構文はかなり異なります。(構文のオプションについては、{\color{red}\Q{help test}}をみてください)
+
+\item {\color{red}\Q{test}}はファイルの状態(ファイルが存在するか、書き込み可かなど)を確認するのにも使えます。
+
+\begin{description}
+\item[{\color{red}{\tt test \$a = my}}] 文字列が等しいか 
+\item[{\color{red}{\tt [ \$a = my ]}}] 上と同じ
+\item[{\color{red}{\tt [ \$a -eq 2 ]}}] 数字が等しいか 
+\item[{\color{red}{\tt [ \$a -gt 2 ]}}] 数字の比較(より大きい)
+\item[{\color{red}{\tt [ 11 > 2 ]}}] 数字の比較をして{\color{red}{\bf いない}}
+\item[{\color{red}{\tt [ -e im1.nii.gnii.gz ]}}] ファイルが存在するかを確認
+\end{description}
+
+注意:整数でない数の比較は、{\color{red}\Q{bc}}を見てください。
+
+\end{itemize}
+
+
+\subsection{IF}
+
+
+\begin{itemize}
+
+\item {\color{red}\Q{if}}コマンドは他のプログラミング言語と同じように動作します。
+\item たいていの場合、{\color{red}\Q{test}}コマンドの結果を利用します。構文は以下のようになります。
+
+\bigskip
+
+{\color{red}\Q{if [}} 条件 {\color{red}\Q{] ; then}}
+
+コマンド ;
+
+{\color{red}\Q{else}}
+ 
+コマンド2 ;
+
+{\color{red}\Q{fi}}
+
+\bigskip
+
+\item {\color{red}\Q{else}}の部分は必須ではありません。
+
+\item 例
+{\color{red}{\tt
+
+if [ \$a = 2 ] ; then
+
+　b="y-axis";
+
+fi 
+}}
+
+\end{itemize}
+
+
+
+
+\subsection*{演習}
+
+ここで{\bf 演習: 引数が妥当かを確認する}をやってみましょう。
+
+
+
+
+\subsection{FOR}
+
+
+\begin{itemize}
+\item {\color{red}\Q{for}}コマンドはリストにある個々の単語に対して、一連のコマンドを実行するというものです。
+\item 構文:
+
+{\color{red}{\tt
+for 変数 in 値のリスト ; do
+
+　　コマンド ;
+
+done 
+}}
+
+\bigskip
+
+\item コマンドはリストにある一つ一つの項目に対して実行されます。
+\item つまり、リストで現在使われている単語が、変数としてセットされています。
+
+\bigskip
+
+\item 例:
+
+{\color{red}{\tt
+for filename in im1 im2 im3 ; do
+
+　　bet \$filename \${filename}\_brain ;
+
+done 
+}}
+
+\end{itemize}
+
+
+
+
+\subsection*{演習}
+
+ここで{\bf 演習: 画像のバッチ処理}をやってみましょう。
+
+
+
+\subsection{BC}
+
+
+\begin{itemize}
+\item {\color{red}\Q{bc}}コマンドは計算機のように動作します。
+\item たいていは{\color{red}{\em echo, パイプ, バッククオート}}を使って変数をセットするときに使われます。
+\item {\color{red}\Q{-l}}オプションを使うと、正確な浮動小数点演算を行うことができます。
+\item 例:
+
+{\color{red}{\tt
+\$ a=2;
+
+\$ a=`echo "3 * \$a + 1" | bc -l`;
+
+\$ echo \$a
+
+　7 
+}}
+
+\bigskip
+
+\item 注意: ダブルクオートを使うことで、{\color{red}\Q{*}}がワイルドカードとして使われないようにしています。
+ 
+\end{itemize}
+
+
+
+
+\begin{itemize}
+\item 整数でない数字の比較は{\color{red}\Q{bc}}を使えばできます。このとき、結果が偽(false)ならば0となり、真(true)ならば1となります。
+
+　例 {\color{red}\Q{echo "-1.2 < 0.5" | bc}}は1を返します
+
+　例 {\color{red}\Q{echo "-1.2 > 0.5" | bc}}は0を返します
+
+ですから、if文においては以下のようになります:
+
+{\color{red}\Q{if [ `echo "$a < $b" | bc -l` = 1 ] ; then ...}}
+
+\end{itemize}
+
+
+
+
+\subsection*{演習}
+
+ここで{\bf 演習: ボクセルの容積を計算する}を行なってみましょう。
+
+
+
+
+\subsection{WHILE}
+
+
+\begin{itemize}
+
+\item {\color{red}\Q{while}}コマンドは条件が真である限り一連のコマンドを実行します。
+\item 構文:
+
+{\color{red}{\tt
+while 条件; do
+
+　　コマンド;
+
+done 
+}}
+
+\bigskip
+
+\item 条件はたいていは{\color{red}\Q{test}}文です。
+\item 例:
+
+{\color{red}{\tt
+a=1
+
+while [ \$a -lt 4 ] ; do
+
+　　bet im\$a brain\$a ;
+
+　　a=`echo \$a + 1 | bc` ;
+
+done 
+}}
+
+\end{itemize}
+
+
+
+
+\subsection*{演習}
+
+ここで{\bf 演習: Lightbox Viewer (画像一覧の作成)}をやってみましょう。
+
+
+
+\subsection{GREP}
+
+
+\begin{itemize}
+
+\item {\color{red}\Q{grep}}コマンドは文字列のパターンを見つけます。
+\item たいていはファイルの中からある単語やフレーズを抽出します。
+\item パイプと一緒に使うと強力なフィルターとなります。
+\item 例:
+
+fslhdの出力からpixdim1の値を見つけます。
+
+{\color{red}\Q{fslhd im1 | grep pixdim1}}
+
+\end{itemize}
+
+
+\subsection{AWK}
+
+
+\begin{itemize}
+\item {\color{red}\Q{awk}}コマンドは汎用性の高いパターンマッチングツールです。
+\item シンプルながら非常に有用な使い方として、文字列から特定の列を抽出することが挙げられます。
+\item 刺激提示ファイルなど、タブ区切りのファイルを操作する時は非常に便利です。
+
+\bigskip
+
+\item 第{\color{red}{\em N}}列を選ぶ構文は:
+
+{\color{red}\Q{awk '{print $N}'}}
+
+\bigskip
+
+\item クオートとかっこは{\color{red}{\bf 示された通り}}に使わなければなりません。
+\item 例:
+
+{\color{red}{\tt
+\$ v="im*.nii.gz"
+
+\$ echo \$v
+
+　im1.nii.gz im2.nii.gz im3.nii.gz
+
+\Q{$ echo $v | awk '{print $2}'}
+
+　im2.nii.gz 
+}}
+
+\end{itemize}
+
+
+
+
+\subsection*{演習}
+
+ここで{\bf 演習: 刺激提示ファイルを処理する}をやってみましょう。
+
+
+\subsection{SED}
+
+
+\begin{itemize}
+
+\item {\color{red}\Q{sed}}コマンドは文字列を置換します。
+\item たいていは文字列を追加したり、削除したり、一部を変更したりするために使います。
+\item 変数を修正するのに非常に便利です。
+
+\item {\color{red}\Q{STRING1}}を{\color{red}\Q{STRING2}}に変更する構文は:
+
+{\color{red}\Q{sed s/STRING1/STRING2/g}}
+
+\item 例:
+{\color{red}{\tt
+\$ v="im*.nii.gz"
+
+\$ v=`echo \$v | sed s/im/Subject/g`
+
+\$ echo \$v
+
+　Subject1.nii.gz Subject2.nii.gz Subject3.nii.gz 
+}}
+
+\item 警告: {\color{red}\Q{. * [ ] /}}はバックスラッシュがない限り、第1の文字列で特別の意味を持ちます。
+\item Tip: {\color{red}\Q{/}}の代わりにどんな文字でも使うことができます。
+
+例　{\color{red}\Q{sed s@STRING1@STRING2@g}}
+
+これはディレクトリやファイルを扱う時にとても便利です。
+
+\end{itemize}
+
+
+\section{関数}
+
+
+\begin{itemize}
+
+\item 他のプログラミング言語と同様に、シェルスクリプトの中で関数を定義することができます。
+\item スクリプトをひとつひとつが理解可能で再利用可能な部品に小さく分けるときに便利です。
+\item 関数は独立したスクリプトのように呼び出すことができます。
+
+\bigskip
+
+\item 関数を作成する構文は:
+
+{\color{red}{\tt
+function 関数名 \{ コマンド ; \}
+}}
+
+もっと短くすると
+
+{\color{red}{\tt
+関数名 () \{ コマンド ; \}
+}}
+
+\bigskip
+
+\item 例:
+
+{\color{red}{\tt
+\Q{function hi { echo "Hi! $1" ; }}
+
+\Q{$ hi}
+
+　Hi!
+
+\$ hi There
+
+　Hi! There 
+}}
+
+\end{itemize}
+
+
+\section{正規表現}
+
+
+\begin{itemize}
+
+\item {\color{red}{\bf 正規表現}}はパターンマッチングで使う構文で、たくさんのコマンドが正規表現を利用しています。(例: {\color{red}\Q{grep, sed}})
+\item 非常に柔軟性が高いが故にすぐに使いこなせるるものではありません。
+\item しかし、いくつかのパターンは覚えやすくとても便利です。
+\item 類似点があるものの、ワイルドカードとは{\color{red}{\bf 異なります}}。
+\item 正規表現で使われる特殊記号としては以下が挙げられます。
+
+\begin{description}
+\item[{\color{red}{\tt .}}] 任意の一文字に合致します
+\item[{\color{red}{\tt *}}] 直前の文字が0個以上あることに合致します
+\item[{\color{red}{\tt .*}}] 任意の文字列に合致します
+\item[{\color{red}{\tt \Q{[ ]}}}] その範囲内にある任意の文字に合致します 
+\item[{\color{red}{\tt \Q{^}}}] 行頭を意味します
+\item[{\color{red}{\tt \$}}] 行末を意味します
+\item[{\color{red}{\tt \Q{[^ ]}}}] その範囲内に{\color{red}{\bf ない}}文字列に合致します
+\end{description}
+\end{itemize}
+
+
+
+
+\begin{itemize}
+\item 例:
+
+{\color{red}{\tt
+\$ echo "Hello world" | sed 's/w.*/X/g'
+
+　Hello X {\color{green}{\small (wの後に任意の文字列が来る文字列をXに置換)}}
+
+\$ echo "Hello world" | \Q{sed 's/w*/X/g'}
+
+　XHXeXlXlXoX XXoXrXlXdX {\color{green}{\small (よくない例:直前に0個以上あるwをXに置換,ワイルドカードとの違いに注意)}}
+
+\$ echo "Hello world" | \Q{sed 's/^.* /X/g'}
+
+　Xworld {\color{green}{\small (行頭の任意の文字列+半角スペースをXに置換)}}
+
+
+\$ echo "Hello world" | sed 's/.\$/X/g'
+
+　Hello worlX {\color{green}{\small (行末の任意の一文字をXに置換)}}
+
+
+\$ echo "Hello world" | \Q{sed 's/[wo]/X/g'}
+
+　HellX XXrld {\color{green}{\small (wとoをXに置換)}}
+
+
+\$ echo "Hello world" | \Q{sed 's/[^wo]/X/g'}
+
+　XXXXoXwoXXX  {\color{green}{\small (wとo以外をXに置換)}}
+
+}}
+
+\end{itemize}
+
+
+
+
+\subsection*{演習}
+
+ここで{\bf 演習: ファイル内容とファイル名の変更}をやってみましょう。
+
+
+
+\section{FSLコマンド}
+
+
+\begin{itemize}
+
+\item fslのコマンドラインユーティリティはたくさんありますが、スクリプトを使いやすくするために特化したユーティリティがいくつかあります。
+
+\begin{enumerate}
+\item {\color{red}\Q{remove_ext}}
+
+これは画像に特化した拡張子のみ取り除きます:  .nii.gz .nii .hdr .img .hdr.gz .img.gz
+
+例 {\color{red}\Q{remove_ext /Volumes/MJ/img1.nii.gz}}の結果は{\color{red}\Q{/Volumes/MJ/img1}}です。
+
+\item {\color{red}\Q{imtest}}
+
+特定のファイルが存在し、それが画像ファイルであれば1を、そうでなければ0を返します
+
+例 {\color{red}\Q{imtest ../img1}}はもし{\color{red}\Q{../img1.nii.gz}} (もしくは{\color{red}\Q{../img1.hdr}})が存在すれば1を返します。
+
+\item {\color{red}\Q{imglob}}
+これを使うと画像ファイルのみのリストを得ることができます。
+
+例 {\color{red}\Q{imglob *}}は*に合致するファイルから画像ファイルだけを並べます
+
+\end{enumerate}
+\end{itemize}
+
+
+
+
+\begin{enumerate}
+\setcounter{enumi}{3}
+
+\item {\color{red}\Q{imcp, immv, imrm, imln}}
+
+これらは画像の拡張子を指定することなく、画像ファイルに対して{\color{red}\Q{cp, mv, rm, ln}}を行うものです。(Analyzeやniftiファイルを扱っていて、どちらの形式かわからないときなどに便利です)
+
+例 {\color{red}\Q{imcp im1 im1_orig}}はniftiファイルに対しては{\color{red}\Q{cp im1.nii.gz im1_orig.nii.gz}}と同じですが、Analyzeファイルに対しては、{\color{red}\Q{cp im1.hdr im1_orig.hdr}}と{\color{red}\Q{cp im1.img im1_orig.img}}のように動きます。
+
+\end{enumerate}
+
+
+\section{コマンドをもう一歩}
+
+
+\begin{itemize}
+
+\item その他にも便利なコマンドがたくさんあります。例を挙げると:
+
+	\begin{itemize}
+	\item {\color{red}\Q{basename}}
+
+	ファイルの前についているディレクトリ情報と指定した拡張子を取り除きます
+
+	例 {\color{red}\Q{basename /tmp/epi.nii.gz .nii.gz}}の出力は{\color{red}\Q{epi}}となります
+
+	\item {\color{red}\Q{dirname}}
+
+	指定したファイルのディレクトリのみを返します
+
+	例 {\color{red}\Q{basename /tmp/epi.nii.gz}}の出力は{\color{red}\Q{/tmp}}となります
+
+	\item {\color{red}\Q{sort}}
+
+	アルファベット順もしくは数字順にファイル(の行)を並べ替えます
+
+	\item {\color{red}\Q{which}}
+
+	実行ファイルがどこにあるかを教えてくれます
+
+	例 {\color{red}\Q{which flirt}}の出力は{\color{red}\Q{/usr/local/fsl/bin/flirt}}となります
+
+	\end{itemize}
+\end{itemize}
+
+
+
+
+\begin{itemize}
+\item 便利なコマンドの続きです
+
+	\begin{itemize}
+
+	\item {\color{red}\Q{head}}
+
+	ファイルの最初のn行を表示します
+
+	\item {\color{red}\Q{tail}}
+
+	ファイルの最後のn行を表示します
+
+	\item {\color{red}\Q{touch}}
+
+	空のファイルを作ります
+
+	\item {\color{red}\Q{paste}}
+
+	ファイルを(水平方向に)結合します
+
+	\end{itemize}
+
+\end{itemize}
+
+
+
+\subsection*{演習}
+
+ここで{\bf 演習: 動画の作成}をやってみましょう(ただしこれは上級者向けです)。
+
+
+\section{さらなる学習のために}
+
+
+\begin{itemize}
+
+\item 画像解析のさらなるコマンドラインツールに関しては、下記をごらんください。
+
+{\color{red}\url{http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Fslutils}}
+
+\item 特定のコマンドについて詳細を知りたい場合は:
+
+	\begin{itemize}
+	\item そのコマンドの{\color{red}\Q{man}}もしくは{\color{red}\Q{help}}を実行してください
+	\end{itemize}
+
+\item 一般的なコマンドおよびスクリプトについて学びたかったら:
+
+	\begin{itemize}
+	\item ウェブを検索しましょう
+	\item 他のスクリプトを見てみましょう(例 \$FSLDIR/binの中のスクリプト)
+
+	メモ: それらがスクリプトかどうかはそのファイルに対して{\color{red}\Q{file}}を実行すればわかります
+
+	\item {\color{red}\Q{apropos}}はコマンドの説明の中に合致するキーワードがあるコマンドを検索します
+
+	例 {\color{red}\Q{apropos merge}}はマージに関係するコマンドをすべて表示します
+
+	\item UNIXやシェルスクリプトに関する本(ただし、大半はかなり専門的です)
+	\end{itemize}
+
+\end{itemize}
+
+
+\end{document}
